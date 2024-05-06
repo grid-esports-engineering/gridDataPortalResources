@@ -60,11 +60,12 @@ class API_Messenger():
         }
         self.base_url = "https://api.grid.gg/"
         self.log_to_terminal = log_to_terminal
-    
+
     def get(self, series_id, endpoint="file-download/end-state/riot/series"):
         """ Send get request to Riot API.
         """
-        if self.log_to_terminal: print_log_to_terminal("Making REST API call")
+        if self.log_to_terminal:
+            print_log_to_terminal("Making REST API call")
         request_url = f"{self.base_url}/{endpoint}/{series_id}"
 
         try_count = 0
@@ -75,37 +76,46 @@ class API_Messenger():
             try:
                 response = requests.get(request_url, headers=self.headers, timeout=3)
             except requests.exceptions.Timeout:
-                if self.log_to_terminal: print_log_to_terminal("API request timed out; retrying")
+                if self.log_to_terminal:
+                    print_log_to_terminal("API request timed out; retrying")
                 try_count += 1
                 continue
 
             if response.status_code == 200:
-                if self.log_to_terminal: print_log_to_terminal("API call was successful")
+                if self.log_to_terminal:
+                    print_log_to_terminal("API call was successful")
                 return response.content
             elif response.status_code == 429:
-                if self.log_to_terminal: print_log_to_terminal(f"API rate-limited; sleeping {response.headers.get('Retry-After')}s")
+                if self.log_to_terminal:
+                    print_log_to_terminal(f"API rate-limited; sleeping {response.headers.get('Retry-After')}s")
                 time.sleep(int(response.headers.get("Retry-After")))
                 try_count += 1
                 continue
             elif response.status_code == 401:
-                if self.log_to_terminal: print_log_to_terminal("API request failed: request was not authorized (401 error)")
+                if self.log_to_terminal:
+                    print_log_to_terminal("API request failed: request was not authorized (401 error)")
                 return response.status_code
             elif response.status_code == 403:
-                if self.log_to_terminal: print_log_to_terminal("API request failed: access forbidden (403 error)")
+                if self.log_to_terminal:
+                    print_log_to_terminal("API request failed: access forbidden (403 error)")
                 return response.status_code
             elif response.status_code == 404:
-                if self.log_to_terminal: print_log_to_terminal(f"Series with ID {series_id} was not found (404 error)")
+                if self.log_to_terminal:
+                    print_log_to_terminal(f"Series with ID {series_id} was not found (404 error)")
                 return response.status_code
             else:
-                if self.log_to_terminal: print_log_to_terminal(f"API request failed: error code {response.status_code}; sleeping and retrying")
+                if self.log_to_terminal:
+                    print_log_to_terminal(f"API request failed: error code {response.status_code}; "
+                                          "sleeping and retrying")
                 time.sleep(1)
                 try_count += 1
                 continue
-    
+
     def post(self, query):
         """ Method to post a GraphQL request to GRID Central Data.
         """
-        if self.log_to_terminal: print_log_to_terminal("Making GraphQL API call")
+        if self.log_to_terminal:
+            print_log_to_terminal("Making GraphQL API call")
         request_headers = self.headers
         request_headers["Content-Type"] = "application/json"
 
@@ -148,8 +158,6 @@ def game_metadata_factory(game_data_from_grid_endstate):
         raise ValueError("Game is not yet complete; try again later")
 
     metadata = {
-        # NOTE: Cannot use the game "id" values from here because they do not match
-        #       the matchId used in the Riot API files. For some reason.
         "map_name": game_data_from_grid_endstate["map"]["name"].capitalize(),
         "game_number": game_data_from_grid_endstate["sequenceNumber"],
         "team_one": {},
@@ -187,15 +195,16 @@ def game_factory(raw_game_data, series_metadata, val_metadata, log_to_terminal=F
     map_name = val_metadata["maps"][map_id]["displayName"]
     game_start = datetime.fromtimestamp(raw_game_data["matchInfo"]["gameStartMillis"] / 1000)
 
-    # Clean up game version (patch) string
-    start_simple_game_version = raw_game_data["matchInfo"]["gameVersion"].find("-") + 1
-    end_simple_game_version = raw_game_data["matchInfo"]["gameVersion"].find("-", start_simple_game_version + 1)
-    game_version_clean = float(raw_game_data["matchInfo"]["gameVersion"][start_simple_game_version:end_simple_game_version])
+    # Clean up game version (patch) string to make it more readable
+    start_simple_gm_ver = raw_game_data["matchInfo"]["gameVersion"].find("-") + 1
+    end_simple_gm_vr = raw_game_data["matchInfo"]["gameVersion"].find("-", start_simple_gm_ver + 1)
+    game_version_clean = float(raw_game_data["matchInfo"]["gameVersion"][start_simple_gm_ver:end_simple_gm_vr])
 
     match_found = False
     for game_metadata in series_metadata["games"]:
         if game_metadata["map_name"] == map_name:
-            if log_to_terminal: print_log_to_terminal(f"Matched game {game_id} on map name ({map_name})")
+            if log_to_terminal:
+                print_log_to_terminal(f"Matched game {game_id} on map name ({map_name})")
             match_found = True
             this_game_metadata = game_metadata
             break
@@ -209,14 +218,16 @@ def game_factory(raw_game_data, series_metadata, val_metadata, log_to_terminal=F
     }
     for team in raw_game_data["teams"]:
         if team["roundsWon"] == this_game_metadata["team_one"]["rounds_won"]:
-            if log_to_terminal: print_log_to_terminal(f"Team {team['teamId']} is team_one")
+            if log_to_terminal:
+                print_log_to_terminal(f"Team {team['teamId']} is team_one")
             team_side_refs[team["teamId"]] = "team_one"
         elif team["roundsWon"] == this_game_metadata["team_two"]["rounds_won"]:
-            if log_to_terminal: print_log_to_terminal(f"Team {team['teamId']} is team_two")
+            if log_to_terminal:
+                print_log_to_terminal(f"Team {team['teamId']} is team_two")
             team_side_refs[team["teamId"]] = "team_two"
         else:
             raise ValueError(f"Failed to map {team['teamId']} onto a team from "
-                                "the GRID metadata")
+                             "the GRID metadata")
 
     # Pre-aggregation
     player_preaggregated_stats = {}
@@ -276,10 +287,10 @@ def game_factory(raw_game_data, series_metadata, val_metadata, log_to_terminal=F
                 player_preaggregated_stats[player["puuid"]]["headshots"] += target["headshots"]
                 player_preaggregated_stats[player["puuid"]]["bodyshots"] += target["bodyshots"]
                 player_preaggregated_stats[player["puuid"]]["legshots"] += target["legshots"]
-            
+
             for kill in player["kills"]:
                 round_kill_events.append(kill)
-        
+
         # Now sort the array of kills and store the first kill / death PUUIDs
         sorted_kills = sorted(
             round_kill_events,
@@ -314,7 +325,7 @@ def game_factory(raw_game_data, series_metadata, val_metadata, log_to_terminal=F
             "map_name": map_name,
             "game_start": game_start,
             "game_version": game_version_clean,
-            "game_number": this_game_metadata["game_number"],            
+            "game_number": this_game_metadata["game_number"],
             "player_name": player["gameName"],
             "team_id": this_game_metadata[team_side_refs[player["teamId"]]]["id"],
             "team_name": this_game_metadata[team_side_refs[player["teamId"]]]["name"],
@@ -331,7 +342,12 @@ def game_factory(raw_game_data, series_metadata, val_metadata, log_to_terminal=F
             "deaths": player["stats"]["deaths"],
             "assists": player["stats"]["assists"],
             "averageCombatScore": round(player["stats"]["score"] / player["stats"]["roundsPlayed"], 1),
-            "damagePerRound": round(player_preaggregated_stats[player_id]["total_damage"] / player["stats"]["roundsPlayed"], 1),
+            "damagePerRound": round(
+                player_preaggregated_stats[player_id]["total_damage"]
+                /
+                player["stats"]["roundsPlayed"],
+                1
+            ),
             "first_kills": player_preaggregated_stats[player_id]["first_kills"],
             "first_deaths": player_preaggregated_stats[player_id]["first_deaths"],
             "headshot_rate": round((
@@ -348,7 +364,8 @@ def game_factory(raw_game_data, series_metadata, val_metadata, log_to_terminal=F
 
         # If there is no Team row for this team yet, construct one
         if not team_rows_added_map[f"{player['teamId']}_team_row_added"]:
-            if log_to_terminal: print_log_to_terminal(f"Adding row for {player['teamId']} team")
+            if log_to_terminal:
+                print_log_to_terminal(f"Adding row for {player['teamId']} team")
             # Null strings are added in some places to ensure the CSV-write is
             # clean, by forcing the correct number of columns
             team_row = {
@@ -360,7 +377,7 @@ def game_factory(raw_game_data, series_metadata, val_metadata, log_to_terminal=F
                 "map_name": map_name,
                 "game_start": game_start,
                 "game_version": game_version_clean,
-                "game_number": this_game_metadata["game_number"],            
+                "game_number": this_game_metadata["game_number"],
                 "player_name": "",
                 "team_id": this_game_metadata[team_side_refs[player["teamId"]]]["id"],
                 "team_name": this_game_metadata[team_side_refs[player["teamId"]]]["name"],
@@ -388,9 +405,9 @@ def game_factory(raw_game_data, series_metadata, val_metadata, log_to_terminal=F
     if player_count_found < 10:
         raise ValueError("Found fewer than 10 non-Neutral players")
     if not team_rows_added_map["Blue_team_row_added"]:
-        raise ValueError(f"Failed to create a team row for Blue team")
+        raise ValueError("Failed to create a team row for Blue team")
     if not team_rows_added_map["Red_team_row_added"]:
-        raise ValueError(f"Failed to create a team row for Red team")
+        raise ValueError("Failed to create a team row for Red team")
 
     sorted_cleaned_game_data = sorted(
         cleaned_game_data,
@@ -415,7 +432,8 @@ def main(log_to_terminal):
         sys.exit()
 
     # Get some Valornat metadata from the community resource valorant-api.com
-    if log_to_terminal: print_log_to_terminal(f"Fetching map and agent metadata from valorant-api.com")
+    if log_to_terminal:
+        print_log_to_terminal("Fetching map and agent metadata from valorant-api.com")
     maps_response = requests.get("https://valorant-api.com/v1/maps")
     maps_response = json.loads(maps_response.content)
     map_metadata = {}
@@ -427,7 +445,7 @@ def main(log_to_terminal):
     agent_metadata = {}
     for agent in agents_response["data"]:
         agent_metadata[agent["uuid"]] = agent
-    
+
     val_metadata = {
         "maps": map_metadata,
         "agents": agent_metadata
@@ -476,16 +494,18 @@ def main(log_to_terminal):
         zip_file = ZipFile(BytesIO(response))
         extracted_file = zip_file.open(zip_file.namelist()[0]).readlines()
         series_data = json.loads(extracted_file[0])
-        if log_to_terminal: print_log_to_terminal(f"Series {series_id} contains {len(series_data)} games")
+        if log_to_terminal:
+            print_log_to_terminal(f"Series {series_id} contains {len(series_data)} games")
 
         for game_data in series_data:
             game_id = game_data["matchInfo"]["matchId"]
-            if log_to_terminal: print_log_to_terminal(f"Sending game {game_id} to parser")
+            if log_to_terminal:
+                print_log_to_terminal(f"Sending game {game_id} to parser")
             cleaned_game_data = game_factory(game_data, series_metadata, val_metadata, log_to_terminal=log_to_terminal)
 
             # Append results into output_array
             output_array.extend(cleaned_game_data)
-        
+
         print_log_to_terminal(f"Finished parsing {len(series_data)} games in series {series_id}")
 
     # Dump the output_array to a CSV and save to disk
@@ -502,7 +522,7 @@ def main(log_to_terminal):
             "map_name",
             "game_start",
             "game_version",
-            "game_number",            
+            "game_number",
             "player_name",
             "team_id",
             "team_name",
@@ -525,7 +545,7 @@ def main(log_to_terminal):
             "headshot_rate"
         ])
         for row in output_array:
-            csv_writer.writerow(row.values())  
+            csv_writer.writerow(row.values())
 
     runtime = str(datetime.now() - start_time).split(".")[0]
     print(f"Zug zug; job's done :: Runtime: {runtime}")

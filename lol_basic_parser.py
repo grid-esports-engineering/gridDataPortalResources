@@ -108,7 +108,6 @@ FIELD_LIST = [
 ]
 
 
-# EVERYTHING BELOW NEEDS TO BE MADE LOL-ORIENTED
 class API_Messenger():
     def __init__(self, api_key=None, log_to_terminal=None):
         if not api_key:
@@ -118,11 +117,12 @@ class API_Messenger():
         }
         self.base_url = "https://api.grid.gg/"
         self.log_to_terminal = log_to_terminal
-    
+
     def get(self, endpoint):
         """ Send get request to Riot API.
         """
-        if self.log_to_terminal: print_log_to_terminal("Making REST API call")
+        if self.log_to_terminal:
+            print_log_to_terminal("Making REST API call")
         request_url = f"{self.base_url}/{endpoint}"
 
         try_count = 0
@@ -133,37 +133,46 @@ class API_Messenger():
             try:
                 response = requests.get(request_url, headers=self.headers, timeout=3)
             except requests.exceptions.Timeout:
-                if self.log_to_terminal: print_log_to_terminal("API request timed out; retrying")
+                if self.log_to_terminal:
+                    print_log_to_terminal("API request timed out; retrying")
                 try_count += 1
                 continue
 
             if response.status_code == 200:
-                if self.log_to_terminal: print_log_to_terminal("API call was successful")
+                if self.log_to_terminal:
+                    print_log_to_terminal("API call was successful")
                 return response.content
             elif response.status_code == 429:
-                if self.log_to_terminal: print_log_to_terminal(f"API rate-limited; sleeping {response.headers.get('Retry-After')}s")
+                if self.log_to_terminal:
+                    print_log_to_terminal(f"API rate-limited; sleeping {response.headers.get('Retry-After')}s")
                 time.sleep(int(response.headers.get("Retry-After")))
                 try_count += 1
                 continue
             elif response.status_code == 401:
-                if self.log_to_terminal: print_log_to_terminal("API request failed: request was not authorized (401 error)")
+                if self.log_to_terminal:
+                    print_log_to_terminal("API request failed: request was not authorized (401 error)")
                 return response.status_code
             elif response.status_code == 403:
-                if self.log_to_terminal: print_log_to_terminal("API request failed: access forbidden (403 error)")
+                if self.log_to_terminal:
+                    print_log_to_terminal("API request failed: access forbidden (403 error)")
                 return response.status_code
             elif response.status_code == 404:
-                if self.log_to_terminal: print_log_to_terminal(f"Series not found (404 error)")
+                if self.log_to_terminal:
+                    print_log_to_terminal("Series not found (404 error)")
                 return response.status_code
             else:
-                if self.log_to_terminal: print_log_to_terminal(f"API request failed: error code {response.status_code}; sleeping and retrying")
+                if self.log_to_terminal:
+                    print_log_to_terminal(f"API request failed: error code {response.status_code}; "
+                                          "sleeping and retrying")
                 time.sleep(1)
                 try_count += 1
                 continue
-    
+
     def post(self, query, endpoint="central-data/graphql"):
         """ Method to post a GraphQL request to GRID Central Data.
         """
-        if self.log_to_terminal: print_log_to_terminal("Making GraphQL API call")
+        if self.log_to_terminal:
+            print_log_to_terminal("Making GraphQL API call")
         request_headers = self.headers
         request_headers["Content-Type"] = "application/json"
 
@@ -205,10 +214,12 @@ def split_team_tag_and_player_nickname(summoner_name, log_to_terminal=False):
             team_tag_found = True
             team_tag = start_of_summoner_name
             player_name = summoner_name[summoner_name.find(" ")+1:]
-            if log_to_terminal: print(f"Split {summoner_name} into team tag {team_tag} and player name {player_name}")
+            if log_to_terminal:
+                print(f"Split {summoner_name} into team tag {team_tag} and player name {player_name}")
 
     if not team_tag_found:
-        if log_to_terminal: print(f"Could not detect team tag in {summoner_name}")
+        if log_to_terminal:
+            print(f"Could not detect team tag in {summoner_name}")
 
     return team_tag, player_name
 
@@ -265,10 +276,9 @@ def game_factory(game_id, series_info, stats_file, timeline_file, live_data, log
                 elif event["teamId"] == 100:
                     team_id = 200
                 else:
-                    # Shouldn't be possible
                     continue
                 team_totals[team_id]["turret_plates"] += 1
-            
+
             if event["type"] == "CHAMPION_KILL":
                 if first_blood_found:
                     continue
@@ -285,7 +295,7 @@ def game_factory(game_id, series_info, stats_file, timeline_file, live_data, log
         team_totals[player["teamId"]]["wards_placed"] += player["wardsPlaced"]
         team_totals[player["teamId"]]["wards_killed"] += player["wardsKilled"]
         team_totals[player["teamId"]]["control_wards_purchased"] += player["visionWardsBoughtInGame"]
-    
+
     for player in stats_file["participants"]:
         team_tag, player_name = split_team_tag_and_player_nickname(player["riotIdGameName"], log_to_terminal)
 
@@ -296,7 +306,7 @@ def game_factory(game_id, series_info, stats_file, timeline_file, live_data, log
             "summoner_name": player_name,
             "team_tag": team_tag,
             "side": player["teamId"],
-            "auto_detect_role": player["teamPosition"],  # May not be 100% reliable
+            "auto_detect_role": player["teamPosition"],  # NOTE: Riot's auto role detection may not be 100% reliable
             "champion": player["championName"],
             "win": int(player["win"]),
             "game_duration": stats_file["gameDuration"],
@@ -316,7 +326,11 @@ def game_factory(game_id, series_info, stats_file, timeline_file, live_data, log
             "wardsClearedPerMinute": player["wardsKilled"] / (stats_file["gameDuration"]/60),
             "controlWardsPurchased": player["visionWardsBoughtInGame"],
             "creepScore": player["totalMinionsKilled"] + player["neutralMinionsKilled"],
-            "creepScorePerMinute": (player["totalMinionsKilled"] + player["neutralMinionsKilled"]) / (stats_file["gameDuration"]/60),
+            "creepScorePerMinute": (
+                (player["totalMinionsKilled"] + player["neutralMinionsKilled"])
+                /
+                (stats_file["gameDuration"]/60)
+            ),
             "goldEarned": player["goldEarned"],
             "goldEarnedPerMinute": player["goldEarned"] / (stats_file["gameDuration"]/60)
         }
@@ -330,10 +344,12 @@ def game_factory(game_id, series_info, stats_file, timeline_file, live_data, log
             if player["side"] == team_id:
                 if player["team_tag"]:
                     team_tag = player["team_tag"]
-                    if log_to_terminal: print(f"Found team tag {team_tag} for team {team_id}")
+                    if log_to_terminal:
+                        print(f"Found team tag {team_tag} for team {team_id}")
                     break
         if not team_tag:
-            if log_to_terminal: print(f"Could not find a team tag for team {team_id}")
+            if log_to_terminal:
+                print(f"Could not find a team tag for team {team_id}")
 
         team_dto = {
             "platform_game_id": game_id,
@@ -360,20 +376,8 @@ def game_factory(game_id, series_info, stats_file, timeline_file, live_data, log
             "riftHeraldKills": team["objectives"]["riftHerald"]["kills"],
             "baronKills": team["objectives"]["baron"]["kills"],
             "inhibitorKills": team["objectives"]["inhibitor"]["kills"],
-            "bans": team["bans"]  # Examples from recent scrim data are all empty arrays...
+            "bans": team["bans"]
         }
-        """
-        "ban1": None,  # TODO: Use live data file?
-        "ban2": None,
-        "ban3": None,
-        "ban4": None,
-        "ban5": None,
-        "pick1": None,  # TODO: Use live data file?
-        "pick2": None,
-        "pick3": None,
-        "pick4": None,
-        "pick5": None
-        """
 
         cleaned_game_data.append(team_dto)
 
@@ -419,8 +423,9 @@ def main(log_to_terminal):
             # Now go to series state to get the list of individual games in the series
             query = SERIES_STATE_QUERY % series_id
             response = api.post(query, endpoint="live-data-feed/series-state/graphql")
-            if log_to_terminal: print_log_to_terminal(f"Found {len(response['data']['seriesState']['games'])} "
-                                                      f"games in series {series_id}")
+            if log_to_terminal:
+                print_log_to_terminal(f"Found {len(response['data']['seriesState']['games'])} "
+                                      f"games in series {series_id}")
             for game in response["data"]["seriesState"]["games"]:
                 series_metadata["games"].append(game)
         except Exception as error:
@@ -447,7 +452,8 @@ def main(log_to_terminal):
 
             # Parse
             game_id = f"{stats_file['platformId']}_{stats_file['gameId']}"
-            if log_to_terminal: print_log_to_terminal(f"Sending game {game_id} to parser")
+            if log_to_terminal:
+                print_log_to_terminal(f"Sending game {game_id} to parser")
             cleaned_game_data = game_factory(
                 game_id,
                 series_metadata,
@@ -459,7 +465,7 @@ def main(log_to_terminal):
 
             # Append results into output_array
             output_array.extend(cleaned_game_data)
-        
+
         print_log_to_terminal(f"Finished parsing games in series {series_id}")
 
     # Dump the output_array to a CSV and save to disk
